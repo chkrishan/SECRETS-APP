@@ -2,8 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const ejs = require('ejs');
 const mongoose = require('mongoose');
-const md5 = require('md5');
+// const md5 = require('md5');
 // const encrypt = require('mongoose-encryption');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 const app = express();
 app.use(express.json());
@@ -40,29 +42,35 @@ app.get('/register', function(req, res) {
 
 app.post('/register', function(req, res) {
 
-    const newUser = new User({
-        email: req.body.username,
-        password: md5(req.body.password)
-    });
+    bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
 
-    newUser.save(function(err) {
-        if (!err) {
-            res.render('secrets');
-        } else {
-            res.send(err);
-        }
+        const newUser = new User({
+            email: req.body.username,
+            password: hash
+        });
+
+        newUser.save(function(err) {
+            if (!err) {
+                res.render('secrets');
+            } else {
+                res.send(err);
+            }
+        })
     })
+
+
 });
 
 app.post('/login', function(req, res) {
     User.findOne({ email: req.body.username }, function(err, foundUser) {
         if (foundUser) {
-            if (foundUser.password === md5(req.body.password)) {
-                res.render('secrets');
-            } else {
-                res.send("wrong password !!! please try again")
-            }
-
+            bcrypt.compare(req.body.password, foundUser.password, function(err, result) {
+                if (result === true) {
+                    res.render('secrets');
+                } else {
+                    res.send("you entered a wrong password !!! please try again")
+                }
+            })
         } else {
             res.send("user not found please look at your credentials and try again")
         }
